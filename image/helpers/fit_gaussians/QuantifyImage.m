@@ -1,3 +1,4 @@
+% Originally used in Buenrostro et al. NBT 2014
 % Author: Jason Buenrostro, Greenleaf lab, Stanford University
 % Uses lsqcurvefit to fit 2D Gaussians over sub-images
 

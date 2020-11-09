@@ -1,3 +1,6 @@
+% Author: Zachary Chiang, Buenrostro Lab, Harvard University
+% Writes a 3D .tif file with the given filename
+
 function[] = write_3d_tif(filename, img)
 
     imwrite(uint16(img(:,:,1)),filename);

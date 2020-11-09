@@ -1,17 +1,19 @@
+% Author: Zachary Chiang, Buenrostro Lab, Harvard University
+% Processes a single cell of in situ genome sequencing data
+
 function[] = expt002_cell(exp,condition,fov,cell,run,umi_file,primers,ligations)
 %% Manually set parameters
 
-exp = "expt002";
-%condition = "scratch1";
-condition = "well2";
-fov = 30;
-cell = 2;
-run = "a1";
+%exp = "expt002";
+%condition = "well2";
+%fov = 30;
+%cell = 2;
+%run = "b1";
 
-primers = ["N","N","N","N","N-1","N-1","N-1","N-1","N-2","N-2","N-2","N-2","N-3","N-3","N-3","N-3","N-4","N-4","N-4"];
-ligations = ["L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","LL","LLL","LLLL"];
+%umi_file = "expt002_nova_all.mm10.final.txt";
 
-umi_file = "expt002_nova_all.mm10.final.txt";
+%primers = ["N","N","N","N","N-1","N-1","N-1","N-1","N-2","N-2","N-2","N-2","N-3","N-3","N-3","N-3","N-4","N-4","N-4"];
+%ligations = ["L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","LL","LLL","LLLL"];
 
 %% Clear environment, start time, add path
 
@@ -20,21 +22,18 @@ tic
 addpath(genpath('bin'));
 colors = distinguishable_colors(101); colors(4,:) = [];
 
-%primers = ["N","N","N","N","N-1","N-1","N-1","N-1","N-2","N-2","N-2","N-2","N-3","N-3","N-3","N-3","N-4","N-4","N-4"];
-%ligations = ["L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","L","LL","LLL","LLLL","LL","LLL","LLLL"];
-
 num_cycles = size(primers,2);
 num_channels = 4;
 
-disp(sprintf('%s: Processing cell %d from %s FOV %d',sec2time(toc),cell,condition,fov))
-
-%% Create directories
+% Create directories
 
 fov_dir = sprintf('%s/%s/fov%03d',exp,condition,fov);
 cell_dir = sprintf('%s//cell%03d',fov_dir,cell);
 
 cell_reg_dir = sprintf('%s/registration',cell_dir);
 if ~exist(cell_reg_dir, 'dir') mkdir(cell_reg_dir), end
+
+disp(sprintf('%s: Processing cell %d from %s FOV %d',sec2time(toc),cell,condition,fov))
 
 %% Load cell stack
 
@@ -136,43 +135,9 @@ reg_tforms = {};
     
 disp(sprintf('%s: Registered hyb and DAPI: %s',sec2time(toc),stats));
 
-%% Nucleus segmentation (up here in case you want to use it to focus registration)
-%{
-bw_stack = zeros(size(reg_dapi_stack));
-
-image = uint16(reg_dapi_stack);
-thresh = multithresh(image,2);
-thresh = thresh(2)-25;
-    
-%figure;
-for z=1:size(bw_stack,3)
-
-    bw_stack(:,:,z) = dapi_stack(:,:,z) > thresh;
-    bw_stack(:,:,z) = imopen(bw_stack(:,:,z),strel('disk',2));
-    %bw_stack(:,:,z) = imdilate(bw_stack(:,:,z),strel('disk',2));
-    %bw_stack(:,:,z) = imfill(bw_stack(:,:,z),'holes');
-    
-    %imshowpair(bw_stack(:,:,z),capImage(dapi_stack(:,:,z),99,'prc'),'montage')
-end
-
-labels = bwlabeln(bw_stack);
-regions = regionprops(labels, 'Area');
-labels_filt = zeros(size(bw_stack));
-
-for i=1:size(regions)
-    if regions(i).Area == max([regions.Area])
-        labels_filt(labels==i)=i;
-    end
-end
-      
-bw_stack = bwlabeln(labels_filt);
-regions = regionprops(bw_stack, 'BoundingBox');
-
-disp(sprintf('%s: Segmented nucleus',sec2time(toc)))
-%}
 %% Registration
 
-for cycle=19:19%2:num_cycles
+for cycle=2:num_cycles
     
     if condition == "well2" & (fov  == 0 | fov == 1) & cycle == 2
         continue
@@ -180,8 +145,7 @@ for cycle=19:19%2:num_cycles
     
     curr_cycle = max(cap_stack(:,:,:,:,cycle),[],4);  
     [reg_stack(:,:,:,:,cycle) reg_cycle stats reg_tforms{cycle}] = register_cycle(max(reg_stack(:,:,:,:,1),[],4),curr_cycle,cap_stack(:,:,:,:,cycle),min_overlap);
-    %[reg_stack(:,:,:,:,cycle) reg_cycle stats] = register_cycle(max(reg_stack(:,:,:,:,1),[],4).*bw_stack,curr_cycle.*bw_stack,cap_stack(:,:,:,:,cycle),min_overlap);
-    
+
     disp(sprintf('%s: Cycle %d registration: %s',sec2time(toc),cycle,stats));
     
 end
@@ -215,8 +179,6 @@ for cycle=2:num_cycles
     for channel=1:num_channels
         [reg_stack2(:,:,:,channel,cycle) correlations(channel) correlations(channel+1)] = ...
             color_correct_heuristic(reg_stack2(:,:,:,:,1),reg_stack2(:,:,:,:,cycle),channel,tforms{channel});
-        %[reg_stack2(:,:,:,channel,cycle) correlations(channel) correlations(channel+1)] = fine_cc_nucleus(reg_stack2(:,:,:,:,1).*bw_stack,reg_stack2(:,:,:,:,cycle).*bw_stack,reg_stack2(:,:,:,:,cycle),channel);
-
     end
     disp(sprintf('%s: Cycle %d color correction: initial=%.03f, channel 1=%+.03f, channel 2=%+.03f, channel 3=%+.03f, channel 4=%+.03f, final=%.03f',sec2time(toc),cycle,...
         correlations(1),correlations(2)-correlations(1),correlations(3)-correlations(2),correlations(4)-correlations(3),correlations(5)-correlations(4),correlations(5)));
@@ -239,66 +201,6 @@ end
 norm_stack(norm_stack<0) = 0;
 
 disp(sprintf('%s: Performed quantile normaliation and zeroed matrix',sec2time(toc)))
-
-%% Save visualizations
-
-% All cycles
-
-f = figure('visible','off');
-p = tight_subplot(num_channels,num_cycles,[0.001 0.001],[0.001 0.001],[0.001 0.001]);
-
-for cycle=1:num_cycles
-    for channel=1:num_channels   
-        axes(p((channel-1)*num_cycles+cycle)); imshow(capImage(max(norm_stack(:,:,:,channel,cycle),[],3),95,'prc'),[]);
-        title(sprintf('cycle %d, channel %d',cycle,channel))
-    end
-end
-
-fig = gcf;
-fig.PaperUnits = 'inches';
-fig.PaperPosition = [0 0 (num_cycles)*2*size(norm_stack,2)/max(size(norm_stack,1),size(norm_stack,2)) 12*size(norm_stack,1)/max(size(norm_stack,1),size(norm_stack,2))];;
-
-fig_dir = sprintf('figures/%s/all_stacks_%s',exp,run);
-if ~exist(fig_dir, 'dir') mkdir(fig_dir), end
-
-saveas(fig,sprintf('%s/%s_fov%03d_cell%03d.png',fig_dir,condition,fov,cell));
-
-% Cycle overlap
-
-f = figure('visible','off');
-p = tight_subplot(4,num_cycles-1,[0.001 0.001],[0.001 0.001],[0.001 0.001]);
-
-for cycle=2:num_cycles
-    
-    init_corr(cycle-1) = corr(reshape(max(stack(:,:,:,:,cycle-1),[],4),[],1),reshape(max(stack(:,:,:,:,cycle),[],4),[],1));
-    deconv_corr(cycle-1) = corr(reshape(max(deconv_stack(:,:,:,:,cycle-1),[],4),[],1),reshape(max(deconv_stack(:,:,:,:,cycle),[],4),[],1));
-    reg_corr(cycle-1) = corr(reshape(max(reg_stack2(:,:,:,:,cycle-1),[],4),[],1),reshape(max(reg_stack2(:,:,:,:,cycle),[],4),[],1));
-    norm_corr(cycle-1) = corr(reshape(max(norm_stack(:,:,:,:,cycle-1),[],4),[],1),reshape(max(norm_stack(:,:,:,:,cycle),[],4),[],1));
-    
-    axes(p(cycle-1)); imshowpair(capImage(max(max(stack(:,:,:,:,cycle-1),[],4),[],3),95,'prc'),capImage(max(max(stack(:,:,:,:,cycle),[],4),[],3),95,'prc')); 
-    title(sprintf('Cycle %d - %d: %.03f',cycle-1,cycle,init_corr(cycle-1)));
-    
-    axes(p(num_cycles+cycle-2)); imshowpair(capImage(max(max(deconv_stack(:,:,:,:,cycle-1),[],4),[],3),95,'prc'),capImage(max(max(deconv_stack(:,:,:,:,cycle),[],4),[],3),95,'prc'));
-    title(sprintf('Cycle %d - %d: %.03f',cycle-1,cycle,deconv_corr(cycle-1)));
-    
-    axes(p(num_cycles*2+cycle-3)); imshowpair(capImage(max(max(reg_stack2(:,:,:,:,cycle-1),[],4),[],3),95,'prc'),capImage(max(max(reg_stack2(:,:,:,:,cycle),[],4),[],3),95,'prc'));
-    title(sprintf('Cycle %d - %d: %.03f',cycle-1,cycle,reg_corr(cycle-1)));
-    
-    axes(p(num_cycles*3+cycle-4)); imshowpair(capImage(max(max(norm_stack(:,:,:,:,cycle-1),[],4),[],3),95,'prc'),capImage(max(max(norm_stack(:,:,:,:,cycle),[],4),[],3),95,'prc'));
-    title(sprintf('Cycle %d - %d: %.03f',cycle-1,cycle,norm_corr(cycle-1)));
-      
-end
-
-fig = gcf;
-fig.PaperUnits = 'inches';
-fig.PaperPosition = [0 0 (num_cycles-1)*2*size(norm_stack,2)/max(size(norm_stack,1),size(norm_stack,2)) 12*size(norm_stack,1)/max(size(norm_stack,1),size(norm_stack,2))];
-
-fig_dir = sprintf('figures/%s/cycle_overlap_%s',exp,run);
-if ~exist(fig_dir, 'dir') mkdir(fig_dir), end
-
-saveas(fig,sprintf('%s/%s_fov%03d_cell%03d.png',fig_dir,condition,fov,cell));
-
-disp(sprintf('%s: Saved visualizations',sec2time(toc)))
 
 %% Save stacks
 

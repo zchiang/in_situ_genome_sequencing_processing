@@ -1,4 +1,7 @@
-%%% Gaussian fit function %%%
+% Originally used in Buenrostro et al. NBT 2014
+% Author: Jason Buenrostro, Greenleaf lab, Stanford University
+% Gaussian fit function
+
 function fitImage = Gauss(subFullFit,xMax,yMax,c)
 % generate empty grid
 fitImage = zeros(xMax, yMax);

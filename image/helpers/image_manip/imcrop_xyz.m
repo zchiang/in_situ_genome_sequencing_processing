@@ -1,3 +1,7 @@
+% Author: Zachary Chiang, Buenrostro Lab, Harvard University
+% Crops an image in 3D using a rectangle (x_start, y_start, z_start, x_len,
+% y_len. z_len) regardless of the number of dimensions
+
 function[cropped_img] = imcrop_xyz(img, rect_3d)
 
     if ndims(img) == 3
